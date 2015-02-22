@@ -7,8 +7,11 @@
 //
 
 #import "MarketViewController.h"
+#import <CoreData/CoreData.h>
 
 @interface MarketViewController ()
+
+@property (nonatomic) NSFetchedResultsController *fetchedResultsController;
 
 @end
 
@@ -24,32 +27,6 @@
     // self.navigationItem.rightBarButtonItem = self.editButtonItem;
 }
 
--(UITableViewCell *)tableView:(UITableView *)tableView
-        cellForRowAtIndexPath:(NSIndexPath *)indexPath {
-    // find the model
-    NSManagedObject *post
-    = [self.fetchedResultsController objectAtIndexPath:indexPath];
-    
-    // dequeue a custom table view cell subclass
-    PMBPostTableViewCell *cell
-    = [tableView dequeueReusableCellWithIdentifier:@"MarketTableViewCell"
-                                      forIndexPath:indexPath];
-    // set its title label
-    cell.titleLabel.text = [post valueForKey:@"title"];
-    
-    // set its author label
-    cell.authorLabel.text = [post valueForKeyPath:@"author.name"];
-    
-    // set its publication date label
-    static NSDateFormatter *dateFormatter = nil;
-    dateFormatter = [[NSDateFormatter alloc] init];
-    dateFormatter.dateStyle = NSDateFormatterMediumStyle;
-    cell.publishedOnLabel.text
-    = [dateFormatter stringFromDate:[post valueForKey:@"publishedOn"]];
-    
-    return cell;
-}
-
 
 
 - (void)didReceiveMemoryWarning {
@@ -57,19 +34,70 @@
     // Dispose of any resources that can be recreated.
 }
 
-#pragma mark - Table view data source
 
-- (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView {
-#warning Potentially incomplete method implementation.
-    // Return the number of sections.
-    return 0;
+
+#pragma mark - fetched results controller
+
+-(NSFetchedResultsController *)fetchedResultsController {
+    if (_fetchedResultsController) {
+        return _fetchedResultsController;
+    }
+    NSEntityDescription *entity
+    = [NSEntityDescription entityForName:@"Post"
+                  inManagedObjectContext:self.managedObjectContext];
+    
+    NSFetchRequest *request = [[NSFetchRequest alloc] init];
+    request.entity = entity;
+
+    
+    NSFetchedResultsController *aFetchedResultsController
+    = [[NSFetchedResultsController alloc] initWithFetchRequest:request
+                                          managedObjectContext:self.managedObjectContext
+                                            sectionNameKeyPath:nil
+                                                     cacheName:nil];
+    _fetchedResultsController = aFetchedResultsController;
+    
+    NSError *e = nil;
+    if (![_fetchedResultsController performFetch:&e]) {
+        NSLog(@"fetch error: %@", [e localizedDescription]);
+        abort();
+    }
+    
+    return _fetchedResultsController;
 }
 
-- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
-#warning Incomplete method implementation.
-    // Return the number of rows in the section.
-    return 0;
+#pragma mark - table view data source
+
+-(NSInteger)tableView:(UITableView *)tableView
+numberOfRowsInSection:(NSInteger)section {
+    id <NSFetchedResultsSectionInfo> info
+    = self.fetchedResultsController.sections[section];
+    return [info numberOfObjects];
 }
+
+// configure the custom table view cell
+-(UITableViewCell *)tableView:(UITableView *)tableView
+        cellForRowAtIndexPath:(NSIndexPath *)indexPath {
+    // find the model
+    NSManagedObject *post
+    = [self.fetchedResultsController objectAtIndexPath:indexPath];
+    
+    // dequeue a table view cell
+    UITableViewCell *cell
+    = [tableView dequeueReusableCellWithIdentifier:@"UITableViewCell"
+                                      forIndexPath:indexPath];
+    
+    // set its title label (tag #1)
+    UILabel *title = (UILabel *)[cell viewWithTag:1];
+    title.text = [post valueForKey:@"title"];
+    
+    // set its author label (tag #2)
+    UILabel *author = (UILabel *)[cell viewWithTag:2];
+    author.text = [post valueForKeyPath:@"author.name"];
+    
+    return cell;
+}
+@end
 
 /*
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
